@@ -42,8 +42,9 @@ module.exports = function (source, options) {
   }
 
   // Add body
-  if (source.postData.text) {
-    // Just text
+  if (source.postData.mimeType === 'multipart/form-data' && source.postData.params && source.postData.params.length > 0) {
+    code.push('(* For multipart use multipart/form-data library; params: %s *)', JSON.stringify(source.postData.params.map(function (p) { return p.name + (p.fileName ? '@file' : '') })))
+  } else if (source.postData.text) {
     code.push('let body = Cohttp_lwt_body.of_string %s in', JSON.stringify(source.postData.text))
   }
 

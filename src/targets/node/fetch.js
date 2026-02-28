@@ -55,15 +55,12 @@ module.exports = function (source, options) {
       code.push('const formData = new FormData();')
       code.blank()
 
-      source.postData.params.forEach(function (param) {
-        if (!param.fileName && !param.fileName && !param.contentType) {
-          code.push('formData.append(\'' + param.name + '\', \'' + param.value + '\');')
-          return
-        }
-
+      ;(source.postData.params || []).forEach(function (param) {
         if (param.fileName) {
           includeFS = true
-          code.push('formData.append(\'' + param.name + '\', fs.createReadStream(\'' + param.fileName + '\'));')
+          code.push('formData.append(\'' + param.name + '\', fs.createReadStream(\'' + (param.fileName || 'file') + '\'));')
+        } else {
+          code.push('formData.append(\'' + param.name + '\', \'' + (param.value || '').replace(/'/g, "\\'") + '\');')
         }
       })
       break

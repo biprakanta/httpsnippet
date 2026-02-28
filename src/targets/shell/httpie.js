@@ -93,16 +93,19 @@ module.exports = function (source, options) {
     code.push('%s:%s', key, shell.quote(source.allHeaders[key]))
   })
 
-  if (source.postData.mimeType === 'application/x-www-form-urlencoded') {
-    // construct post params
+  if (source.postData.mimeType === 'application/x-www-form-urlencoded' || source.postData.mimeType === 'multipart/form-data') {
     if (source.postData.params && source.postData.params.length) {
       flags.push(opts.short ? '-f' : '--form')
-
-      source.postData.params.forEach(function (param) {
-        code.push('%s=%s', param.name, shell.quote(param.value))
+      ;(source.postData.params || []).forEach(function (param) {
+        if (param.fileName) {
+          code.push('%s@%s', param.name, shell.quote(param.fileName || 'file'))
+        } else {
+          code.push('%s=%s', param.name, shell.quote(param.value || ''))
+        }
       })
     }
-  } else {
+  }
+  if (source.postData.mimeType !== 'application/x-www-form-urlencoded' && source.postData.mimeType !== 'multipart/form-data') {
     raw = true
   }
 

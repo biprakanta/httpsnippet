@@ -34,7 +34,10 @@ module.exports = function (source, options) {
     })
   }
 
-  if (source.postData.text) {
+  if (source.postData.mimeType === 'multipart/form-data' && source.postData.params && source.postData.params.length > 0) {
+    code.push(2, '// For multipart use a multipart body publisher; params: %s', JSON.stringify(source.postData.params.map(function (p) { return p.name + (p.fileName ? '@' + p.fileName : '=' + p.value) })))
+    code.push(2, '.method("%s", HttpRequest.BodyPublishers.noBody())', source.method.toUpperCase())
+  } else if (source.postData.text) {
     code.push(
       2,
       '.method("%s", HttpRequest.BodyPublishers.ofString(%s))',

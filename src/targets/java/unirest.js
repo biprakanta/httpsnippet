@@ -37,7 +37,20 @@ module.exports = function (source, options) {
     })
   }
 
-  if (source.postData.text) {
+  if (source.postData.mimeType === 'multipart/form-data' && source.postData.params && source.postData.params.length > 0) {
+    const hasFile = source.postData.params.some(function (p) { return p.fileName })
+    if (hasFile) {
+      source.postData.params.forEach(function (param) {
+        if (param.fileName) {
+          code.push(1, '.field("%s", new File("%s"))', param.name, param.fileName || 'file')
+        } else {
+          code.push(1, '.field("%s", "%s")', param.name, (param.value || '').replace(/"/g, '\\"'))
+        }
+      })
+    } else {
+      code.push(1, '.fields(%s)', JSON.stringify(source.postData.params.reduce(function (acc, p) { acc[p.name] = p.value || ''; return acc }, {})))
+    }
+  } else if (source.postData.text) {
     code.push(1, '.body(%s)', JSON.stringify(source.postData.text))
   }
 

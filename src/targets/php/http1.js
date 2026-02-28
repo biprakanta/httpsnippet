@@ -65,6 +65,21 @@ module.exports = function (source, options) {
         .blank()
       break
 
+    case 'multipart/form-data':
+      if (source.postData.params && source.postData.params.length > 0) {
+        const postFields = {}
+        source.postData.params.forEach(function (param) {
+          if (param.fileName) {
+            postFields[param.name] = '@' + (param.fileName || 'file')
+          } else {
+            postFields[param.name] = param.value || ''
+          }
+        })
+        code.push('$request->setPostFields(%s);', helpers.convert(postFields, opts.indent))
+          .blank()
+      }
+      break
+
     default:
       if (source.postData.text) {
         code.push('$request->setBody(%s);', helpers.convert(source.postData.text))

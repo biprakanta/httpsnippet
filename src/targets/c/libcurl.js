@@ -31,7 +31,23 @@ module.exports = function (source, options) {
       .push('curl_easy_setopt(hnd, CURLOPT_COOKIE, "%s");', source.allHeaders.cookie)
   }
 
-  if (source.postData.text) {
+  if (source.postData.mimeType === 'multipart/form-data' && source.postData.params && source.postData.params.length > 0) {
+    code.blank()
+      .push('curl_mime *mime = curl_mime_init(hnd);')
+    source.postData.params.forEach(function (param) {
+      code.push('curl_mime_part *part = curl_mime_addpart(mime);')
+      code.push('curl_mime_name(part, "%s");', param.name)
+      if (param.fileName) {
+        code.push('curl_mime_filedata(part, "%s");', param.fileName || 'file')
+        if (param.contentType) {
+          code.push('curl_mime_type(part, "%s");', param.contentType)
+        }
+      } else {
+        code.push('curl_mime_data(part, "%s", CURL_ZERO_TERMINATED);', (param.value || '').replace(/"/g, '\\"'))
+      }
+    })
+    code.push('curl_easy_setopt(hnd, CURLOPT_MIMEPOST, mime);')
+  } else if (source.postData.text) {
     code.blank()
       .push('curl_easy_setopt(hnd, CURLOPT_POSTFIELDS, %s);', JSON.stringify(source.postData.text))
   }

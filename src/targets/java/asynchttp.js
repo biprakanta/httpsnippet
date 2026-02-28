@@ -33,7 +33,9 @@ module.exports = function (source, options) {
     })
   }
 
-  if (source.postData.text) {
+  if (source.postData.mimeType === 'multipart/form-data' && source.postData.params && source.postData.params.length > 0) {
+    code.push(1, '// TODO: add .setBody() with MultipartBody.Builder() and addFormDataPart for: %s', source.postData.params.map(function (p) { return p.name + (p.fileName ? '@file' : '') }).join(', '))
+  } else if (source.postData.text) {
     code.push(1, '.setBody(%s)', JSON.stringify(source.postData.text))
   }
 

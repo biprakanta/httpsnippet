@@ -36,6 +36,7 @@ module.exports = function (source, options) {
     reqOpts.headers = source.allHeaders
   }
 
+  let multipartForm = false
   switch (source.postData.mimeType) {
     case 'application/x-www-form-urlencoded':
       reqOpts.data = source.postData.paramsObj
@@ -47,6 +48,21 @@ module.exports = function (source, options) {
       }
       break
 
+    case 'multipart/form-data':
+      code.unshift('const FormData = require(\'form-data\');')
+      code.push('const form = new FormData();')
+      code.blank()
+      ;(source.postData.params || []).forEach(function (param) {
+        if (param.fileName) {
+          code.push('form.append(\'%s\', require(\'fs\').createReadStream(\'%s\'));', param.name, param.fileName || 'file')
+        } else {
+          code.push('form.append(\'%s\', \'%s\');', param.name, (param.value || '').replace(/'/g, "\\'"))
+        }
+      })
+      code.blank()
+      multipartForm = true
+      break
+
     default:
       if (source.postData.text) {
         reqOpts.data = source.postData.text
@@ -54,7 +70,10 @@ module.exports = function (source, options) {
   }
 
   code.push('var options = %s;', stringifyObject(reqOpts, { indent: '  ', inlineCharacterLimit: 80 }))
-    .blank()
+  if (multipartForm) {
+    code.push('options.data = form;')
+    code.blank()
+  }
 
   code.push(util.format('axios.request(options).then(%s', 'function (response) {'))
     .push(1, 'console.log(response.data);')

@@ -44,9 +44,17 @@ module.exports = function (command) {
       commandOptions.push('-WebSession $session')
     }
 
-    if (source.postData.text) {
-      commandOptions.push("-ContentType '" + helpers.getHeader(source.allHeaders, 'content-type') + "'")
-      commandOptions.push("-Body '" + source.postData.text + "'")
+    if (source.postData.mimeType === 'multipart/form-data' && source.postData.params && source.postData.params.length > 0) {
+      const formEntries = source.postData.params.map(function (param) {
+        if (param.fileName) {
+          return param.name + " = Get-Item -Path '" + (param.fileName || 'file') + "'"
+        }
+        return param.name + " = '" + (param.value || '').replace(/'/g, "''") + "'"
+      })
+      commandOptions.push('-Form @{ ' + formEntries.join('; ') + ' }')
+    } else if (source.postData.text) {
+      commandOptions.push("-ContentType '" + (helpers.getHeader(source.allHeaders, 'content-type') || 'application/octet-stream') + "'")
+      commandOptions.push("-Body '" + source.postData.text.replace(/'/g, "''") + "'")
     }
 
     code.push("$response = %s -Uri '%s' -Method %s %s", command, source.fullUrl, source.method, commandOptions.join(' '))

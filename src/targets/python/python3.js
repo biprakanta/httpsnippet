@@ -28,11 +28,18 @@ module.exports = function (source, options) {
       .blank()
   }
 
-  // Create payload string if it exists
-  const payload = JSON.stringify(source.postData.text)
-  if (payload) {
-    code.push('payload = %s', payload)
-      .blank()
+  // Create payload string if it exists (multipart: use requests target for idiomatic form)
+  let payload = null
+  if (source.postData.mimeType === 'multipart/form-data') {
+    code.push('# For multipart/form-data use the Python (requests) target for data= and files=.')
+    code.push('payload = None')
+    code.blank()
+  } else {
+    payload = JSON.stringify(source.postData.text)
+    if (payload) {
+      code.push('payload = %s', payload)
+      code.blank()
+    }
   }
 
   // Create Headers

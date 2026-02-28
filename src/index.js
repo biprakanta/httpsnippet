@@ -110,8 +110,13 @@ HTTPSnippet.prototype.prepare = function (request) {
       // reset values
       request.postData.text = ''
       request.postData.mimeType = 'multipart/form-data'
+      // ensure params/paramsObj exist so all targets can use them (no raw body fallback)
+      if (!request.postData.params) {
+        request.postData.params = []
+        request.postData.paramsObj = {}
+      }
 
-      if (request.postData.params) {
+      if (request.postData.params.length > 0) {
         const form = new MultiPartForm()
 
         // The `form-data` module returns one of two things: a native FormData object, or its own polyfill. Since the
@@ -185,6 +190,11 @@ HTTPSnippet.prototype.prepare = function (request) {
           : 'content-type'
 
         request.headersObj[contentTypeHeader] = 'multipart/form-data'
+      } else {
+        request.postData.paramsObj = request.postData.params.reduce(function (acc, param) {
+          acc[param.name] = param.value || ''
+          return acc
+        }, {})
       }
       break
 

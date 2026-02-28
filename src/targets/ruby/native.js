@@ -47,7 +47,15 @@ module.exports = function (source, options) {
     })
   }
 
-  if (source.postData.text) {
+  if (source.postData.mimeType === 'multipart/form-data' && source.postData.params && source.postData.params.length > 0) {
+    code.push('request["Content-Type"] = "multipart/form-data"')
+    const hasFile = source.postData.params.some(function (p) { return p.fileName })
+    if (hasFile) {
+      code.push('# For file uploads use RestClient or multipart gem; params: %s', JSON.stringify(source.postData.params.map(function (p) { return p.name + (p.fileName ? '@' + p.fileName : '=' + p.value) })))
+    } else {
+      code.push('request.body = URI.encode_www_form(%s)', JSON.stringify(source.postData.params.reduce(function (acc, p) { acc[p.name] = p.value || ''; return acc }, {})))
+    }
+  } else if (source.postData.text) {
     code.push('request.body = %s', JSON.stringify(source.postData.text))
   }
 

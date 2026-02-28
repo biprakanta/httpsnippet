@@ -26,7 +26,22 @@ module.exports = function (source, options) {
   code.push('OkHttpClient client = new OkHttpClient();')
     .blank()
 
-  if (source.postData.text) {
+  let hasBody = false
+  if (source.postData.mimeType === 'multipart/form-data' && source.postData.params && source.postData.params.length > 0) {
+    hasBody = true
+    code.push('RequestBody body = new MultipartBody.Builder()')
+    code.push(1, '.setType(MultipartBody.FORM)')
+    source.postData.params.forEach(function (param) {
+      if (param.fileName) {
+        code.push(1, '.addFormDataPart("%s", "%s", RequestBody.create(MediaType.parse("%s"), new File("%s")))', param.name, param.fileName || 'file', param.contentType || 'application/octet-stream', param.fileName || 'file')
+      } else {
+        code.push(1, '.addFormDataPart("%s", "%s")', param.name, (param.value || '').replace(/"/g, '\\"'))
+      }
+    })
+    code.push(1, '.build();')
+    code.blank()
+  } else if (source.postData.text) {
+    hasBody = true
     if (source.postData.boundary) {
       code.push('MediaType mediaType = MediaType.parse("%s; boundary=%s");', source.postData.mimeType, source.postData.boundary)
     } else {
@@ -38,13 +53,13 @@ module.exports = function (source, options) {
   code.push('Request request = new Request.Builder()')
   code.push(1, '.url("%s")', source.fullUrl)
   if (methods.indexOf(source.method.toUpperCase()) === -1) {
-    if (source.postData.text) {
+    if (hasBody) {
       code.push(1, '.method("%s", body)', source.method.toUpperCase())
     } else {
       code.push(1, '.method("%s", null)', source.method.toUpperCase())
     }
   } else if (methodsWithBody.indexOf(source.method.toUpperCase()) >= 0) {
-    if (source.postData.text) {
+    if (hasBody) {
       code.push(1, '.%s(body)', source.method.toLowerCase())
     } else {
       code.push(1, '.%s(null)', source.method.toLowerCase())

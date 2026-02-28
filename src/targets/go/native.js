@@ -36,6 +36,8 @@ module.exports = function (source, options) {
     }
   }
 
+  const hasMultipart = source.postData.mimeType === 'multipart/form-data' && source.postData.params && source.postData.params.length > 0
+
   // Create boilerplate
   if (opts.showBoilerplate) {
     code.push('package main')
@@ -47,14 +49,20 @@ module.exports = function (source, options) {
       code.push(indent, '"time"')
     }
 
-    if (source.postData.text) {
+    if (hasMultipart) {
+      code.push(indent, '"bytes"')
+      code.push(indent, '"mime/multipart"')
+      code.push(indent, '"os"')
+    }
+
+    if (source.postData.text && !hasMultipart) {
       code.push(indent, '"strings"')
     }
 
     code.push(indent, '"net/http"')
 
-    if (opts.printBody) {
-      code.push(indent, '"io/ioutil"')
+    if (opts.printBody || hasMultipart) {
+      code.push(indent, '"io"')
     }
 
     code.push(')')
@@ -79,7 +87,23 @@ module.exports = function (source, options) {
     .blank()
 
   // If we have body content or not create the var and reader or nil
-  if (source.postData.text) {
+  if (hasMultipart) {
+    code.push(indent, 'body := &bytes.Buffer{}')
+    code.push(indent, 'writer := multipart.NewWriter(body)')
+    source.postData.params.forEach(function (param) {
+      if (param.fileName) {
+        code.push(indent, 'part, _ := writer.CreateFormFile("%s", "%s")', param.name, param.fileName || 'file')
+        code.push(indent, 'file, _ := os.Open("%s")', param.fileName || 'file')
+        code.push(indent, 'io.Copy(part, file)')
+      } else {
+        code.push(indent, 'writer.WriteField("%s", "%s")', param.name, (param.value || '').replace(/"/g, '\\"'))
+      }
+    })
+    code.push(indent, 'writer.Close()')
+    code.push(indent, 'req, %s := http.NewRequest("%s", url, body)', errorPlaceholder, source.method)
+    code.push(indent, 'req.Header.Set("Content-Type", writer.FormDataContentType())')
+    code.blank()
+  } else if (source.postData.text) {
     code.push(indent, 'payload := strings.NewReader(%s)', JSON.stringify(source.postData.text))
       .blank()
       .push(indent, 'req, %s := http.NewRequest("%s", url, payload)', errorPlaceholder, source.method)
@@ -104,11 +128,11 @@ module.exports = function (source, options) {
   code.push(indent, 'res, %s := %s.Do(req)', errorPlaceholder, client)
   errorCheck()
 
-  // Get Body
+  // Get Body (use resBody to avoid shadowing request body in multipart)
   if (opts.printBody) {
     code.blank()
       .push(indent, 'defer res.Body.Close()')
-      .push(indent, 'body, %s := ioutil.ReadAll(res.Body)', errorPlaceholder)
+      .push(indent, 'resBody, %s := io.ReadAll(res.Body)', errorPlaceholder)
     errorCheck()
   }
 
@@ -117,7 +141,7 @@ module.exports = function (source, options) {
     .push(indent, 'fmt.Println(res)')
 
   if (opts.printBody) {
-    code.push(indent, 'fmt.Println(string(body))')
+    code.push(indent, 'fmt.Println(string(resBody))')
   }
 
   // End main block

@@ -41,8 +41,12 @@ module.exports = function (source, options) {
     case 'multipart/form-data':
       code.push('const form = new FormData();')
 
-      source.postData.params.forEach(function (param) {
-        code.push('form.append(%s, %s);', JSON.stringify(param.name), JSON.stringify(param.value || param.fileName || ''))
+      ;(source.postData.params || []).forEach(function (param) {
+        if (param.fileName) {
+          code.push('form.append(%s, new File([], %s, { type: %s }));', JSON.stringify(param.name), JSON.stringify(param.fileName || 'file'), JSON.stringify(param.contentType || 'application/octet-stream'))
+        } else {
+          code.push('form.append(%s, %s);', JSON.stringify(param.name), JSON.stringify(param.value || ''))
+        }
       })
 
       settings.processData = false

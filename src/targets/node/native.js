@@ -67,13 +67,33 @@ module.exports = function (source, options) {
       }
       break
 
+    case 'multipart/form-data':
+      if (source.postData.params && source.postData.params.length > 0) {
+        code.unshift('const FormData = require("form-data");')
+        code.unshift('const fs = require("fs");')
+        code.push('const form = new FormData();')
+        source.postData.params.forEach(function (param) {
+          if (param.fileName) {
+            code.push('form.append(%s, fs.createReadStream(%s));', JSON.stringify(param.name), JSON.stringify(param.fileName || 'file'))
+          } else {
+            code.push('form.append(%s, %s);', JSON.stringify(param.name), JSON.stringify(param.value || ''))
+          }
+        })
+        code.push('const formHeaders = form.getHeaders();')
+        code.push('Object.keys(formHeaders).forEach(function (k) { req.setHeader(k, formHeaders[k]); });')
+        code.push('form.pipe(req);')
+      }
+      break
+
     default:
       if (source.postData.text) {
         code.push('req.write(%s);', JSON.stringify(source.postData.text, null, opts.indent))
       }
   }
 
-  code.push('req.end();')
+  if (source.postData.mimeType !== 'multipart/form-data' || !source.postData.params || source.postData.params.length === 0) {
+    code.push('req.end();')
+  }
 
   return code.join()
 }

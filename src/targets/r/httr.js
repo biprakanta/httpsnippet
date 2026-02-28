@@ -50,12 +50,25 @@ module.exports = function (source, options) {
       .blank()
   }
 
-  // Construct payload
-  const payload = JSON.stringify(source.postData.text)
-
-  if (payload) {
-    code.push('payload <- %s', payload)
+  // Construct payload / body
+  if (source.postData.mimeType === 'multipart/form-data' && source.postData.params && source.postData.params.length > 0) {
+    code.push('body <- list(')
+    source.postData.params.forEach(function (param, idx) {
+      const suffix = idx === source.postData.params.length - 1 ? '' : ','
+      if (param.fileName) {
+        code.push(1, '%s = httr::upload_file(%s)%s', param.name, JSON.stringify(param.fileName || 'file'), suffix)
+      } else {
+        code.push(1, '%s = %s%s', param.name, JSON.stringify(param.value || ''), suffix)
+      }
+    })
+    code.push(')')
       .blank()
+  } else {
+    const payload = JSON.stringify(source.postData.text)
+    if (payload) {
+      code.push('payload <- %s', payload)
+        .blank()
+    }
   }
 
   // Define encode
@@ -107,7 +120,9 @@ module.exports = function (source, options) {
   const method = source.method
   let request = util.format('response <- VERB("%s", url', method)
 
-  if (payload) {
+  if (source.postData.mimeType === 'multipart/form-data' && source.postData.params && source.postData.params.length > 0) {
+    request += ', body = body'
+  } else if (source.postData.text) {
     request += ', body = payload'
   }
 

@@ -31,10 +31,18 @@ module.exports = function (source, options) {
     })
   }
 
-  if (source.postData.text) {
+  if (source.postData.mimeType === 'multipart/form-data' && source.postData.params && source.postData.params.length > 0) {
+    source.postData.params.forEach(function (param) {
+      if (param.fileName) {
+        code.push('request.AddFile("%s", "%s", "%s");', param.name, param.fileName || 'file', param.contentType || 'application/octet-stream')
+      } else {
+        code.push('request.AddParameter("%s", %s, ParameterType.GetOrPost);', param.name, JSON.stringify(param.value || ''))
+      }
+    })
+  } else if (source.postData.text) {
     code.push(
       'request.AddParameter("%s", %s, ParameterType.RequestBody);',
-      helpers.getHeader(source.allHeaders, 'content-type'),
+      helpers.getHeader(source.allHeaders, 'content-type') || 'application/octet-stream',
       JSON.stringify(source.postData.text)
     )
   }
