@@ -195,10 +195,8 @@ export class HTTPSnippet {
           // This hack is pretty awful but it's the only way we can use this library in the browser as if we code this against just the native FormData object, we can't polyfill that back into Node because Blob and File objects, which something like `formdata-polyfill` requires, don't exist there.
           const isNativeFormData = typeof form[Symbol.iterator] === 'function';
 
-          // TODO: THIS ABSOLUTELY MUST BE REMOVED.
-          // IT BREAKS SOME USE-CASES FOR MULTIPART FORMS THAT DEPEND ON BEING ABLE TO SET THE BOUNDARY.
-          // easter egg
-          const boundary = '---011000010111000001101001'; // this is binary for "api". yep.
+          // Use a short, readable boundary for generated snippets.
+          const boundary = '---';
           if (!isNativeFormData) {
             form._boundary = boundary;
           }
@@ -236,12 +234,24 @@ export class HTTPSnippet {
           }
 
           request.postData.boundary = boundary;
+          // Build helper representations so language targets can choose between
+          // structured multipart params or text fallback.
+          request.postData.paramsObj = request.postData.params.reduce(
+            (accumulator, param) => ({
+              ...accumulator,
+              [param.name]: param.value || '',
+            }),
+            {},
+          );
+          request.postData.text = request.postData.params
+            .map(param => (param.fileName ? `${param.name}=@${param.fileName}` : `${param.name}=${param.value || ''}`))
+            .join('&');
 
           // Since headers are case-sensitive we need to see if there's an existing `Content-Type` header that we can override.
           const contentTypeHeader =
             getHeaderName(request.headersObj, 'content-type') || 'content-type';
 
-          request.headersObj[contentTypeHeader] = `multipart/form-data; boundary=${boundary}`;
+          request.headersObj[contentTypeHeader] = 'multipart/form-data';
         }
         break;
 

@@ -57,7 +57,7 @@ export const requests: Client<RequestsOptions> = {
 
     // Construct payload
     let payload: Record<string, any> = {};
-    const files: Record<string, string> = {};
+    const files: string[] = [];
 
     let hasFiles = false;
     let hasPayload = false;
@@ -79,7 +79,9 @@ export const requests: Client<RequestsOptions> = {
         payload = {};
         postData.params.forEach(p => {
           if (p.fileName) {
-            files[p.name] = `open('${p.fileName}', 'rb')`;
+            files.push(
+              `("${p.name}", ("${p.fileName}", open("${p.fileName}", "rb"), "${p.contentType || 'application/octet-stream'}"))`,
+            );
             hasFiles = true;
           } else {
             payload[p.name] = p.value;
@@ -88,7 +90,12 @@ export const requests: Client<RequestsOptions> = {
         });
 
         if (hasFiles) {
-          push(`files = ${literalRepresentation(files, opts)}`);
+          push('files = [');
+          files.forEach((entry, idx) => {
+            const suffix = idx === files.length - 1 ? '' : ',';
+            push(`${entry}${suffix}`, 1);
+          });
+          push(']');
 
           if (hasPayload) {
             push(`payload = ${literalRepresentation(payload, opts)}`);
