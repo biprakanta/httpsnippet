@@ -130,8 +130,8 @@ HTTPSnippet.prototype.prepare = function (request) {
         // which something like `formdata-polyfill` requires, don't exist there.
         const isNativeFormData = (typeof form[Symbol.iterator] === 'function')
 
-        // easter egg
-        const boundary = '---011000010111000001101001'
+        // use a short boundary so generated snippets are readable
+        const boundary = '---'
         if (!isNativeFormData) {
           form._boundary = boundary
         }
@@ -167,6 +167,16 @@ HTTPSnippet.prototype.prepare = function (request) {
         }
 
         request.postData.boundary = boundary
+        request.postData.paramsObj = request.postData.params.reduce(function (acc, param) {
+          acc[param.name] = param.value || ''
+          return acc
+        }, {})
+        request.postData.text = request.postData.params.map(function (param) {
+          if (param.fileName) {
+            return param.name + '=@' + param.fileName
+          }
+          return param.name + '=' + (param.value || '')
+        }).join('&')
 
         // Since headers are case-sensitive we need to see if there's an existing `Content-Type` header that we can
         // override.
@@ -174,7 +184,7 @@ HTTPSnippet.prototype.prepare = function (request) {
           ? helpers.getHeaderName(request.headersObj, 'content-type')
           : 'content-type'
 
-        request.headersObj[contentTypeHeader] = 'multipart/form-data; boundary=' + boundary
+        request.headersObj[contentTypeHeader] = 'multipart/form-data'
       }
       break
 

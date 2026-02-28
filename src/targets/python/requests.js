@@ -43,6 +43,7 @@ module.exports = function (source, options) {
   // Construct payload
   let hasPayload = false
   let jsonPayload = false
+  let multipartPayload = false
   switch (source.postData.mimeType) {
     case 'application/json':
       if (source.postData.jsonObj) {
@@ -51,6 +52,53 @@ module.exports = function (source, options) {
         hasPayload = true
       }
       break
+
+    case 'multipart/form-data': {
+      const fields = []
+      const files = []
+      ;(source.postData.params || []).forEach(function (param) {
+        if (param.fileName) {
+          files.push(param)
+        } else {
+          fields.push(param)
+        }
+      })
+
+      code.push('payload = {}')
+      if (fields.length) {
+        code.push('data = {')
+        fields.forEach(function (param, idx) {
+          const suffix = idx === fields.length - 1 ? '' : ','
+          code.push(1, '"%s": "%s"%s', param.name, param.value || '', suffix)
+        })
+        code.push('}')
+      } else {
+        code.push('data = payload')
+      }
+
+      if (files.length) {
+        code.push('files = [')
+        files.forEach(function (param, idx) {
+          const fileName = param.fileName || 'file'
+          const contentType = param.contentType || 'application/octet-stream'
+          const suffix = idx === files.length - 1 ? '' : ','
+          code.push(
+            1,
+            '("%s", ("%s", open("%s", "rb"), "%s"))%s',
+            param.name,
+            fileName,
+            fileName,
+            contentType,
+            suffix
+          )
+        })
+        code.push(']')
+      }
+
+      multipartPayload = true
+      hasPayload = true
+      break
+    }
 
     default: {
       const payload = JSON.stringify(source.postData.text)
@@ -92,7 +140,12 @@ module.exports = function (source, options) {
   let request = util.format('response = requests.request("%s", url', method)
 
   if (hasPayload) {
-    if (jsonPayload) {
+    if (multipartPayload) {
+      request += ', data=data'
+      if (source.postData.params && source.postData.params.some(function (p) { return p.fileName })) {
+        request += ', files=files'
+      }
+    } else if (jsonPayload) {
       request += ', json=payload'
     } else {
       request += ', data=payload'
