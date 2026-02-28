@@ -49,6 +49,7 @@
   },
   "scripts": {
     "clean": "tsc --build tsconfig.build.json --clean",
+    "prepare": "npm run build",
     "prebuild": "npm run clean",
     "lint": "npm run lint:prettify && npm run lint:code && npm run lint:markdown",
     "lint:prettify": "prettier --check .",
